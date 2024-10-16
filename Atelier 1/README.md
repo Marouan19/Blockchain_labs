@@ -55,7 +55,7 @@ dot -Tpng merkle_tree.dot -o merkle_tree.png
 ```
 Result
 
-![resultat](merkle_tree.png)
+![resultat](Exercice1/merkle_tree.png)
 
 ## **Exercise 2: Proof of Work**
 

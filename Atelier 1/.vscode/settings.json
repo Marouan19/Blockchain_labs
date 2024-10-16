@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "*.yarnproject": "jsonc",
+        "iomanip": "cpp"
+    }
+}

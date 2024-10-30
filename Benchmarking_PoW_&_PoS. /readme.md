@@ -6,7 +6,6 @@ Ce projet implémente et compare deux mécanismes de consensus blockchain majeur
 - **Proof of Work (PoW)** : Système basé sur la résolution de puzzles cryptographiques
 - **Proof of Stake (PoS)** : Système basé sur la mise (stake) des validateurs
 - Inclut des outils de benchmarking complets pour comparer leurs performances
-
 ## 📥 Clone du projet
 ```bash
 git clone https://github.com/Marouan19/Blockchain_labs.git
@@ -42,7 +41,7 @@ class ProofOfStake:
 ```
 
 ## 🔧 Fonctionnalités Principales
-
+![etapes](2.png)
 ### 1. Proof of Work
 - **Initialisation** : Définition de la difficulté (nombre de zéros requis)
 - **Minage** : 

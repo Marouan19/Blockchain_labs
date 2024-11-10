@@ -132,7 +132,7 @@ struct Comment {
 2. **Installation**:
    ```bash
    # Clone the repository
-   git clone [your-repository-url]
+   git clone https://github.com/Marouan19/Blockchain_labs/tree/main/Mini_social_media
 
    cd Mini_social_media
 

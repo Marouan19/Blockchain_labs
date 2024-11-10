@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mini Twitter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.16/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.7.3/dist/web3.min.js"></script>
+  <style>
+    .twitter-logo {
+      width: 40px;
+      height: 40px;
+    }
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f8fafc;
+        padding: 20px;
+    }
+    .post-card {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .post-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .post-header img {
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        margin-right: 15px;
+    }
+    .post-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    .post-content {
+        font-size: 1rem;
+        margin: 10px 0;
+    }
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+    }
+    .action-buttons button {
+        background-color: #3490dc;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 5px;
+        border: none;
+        cursor: pointer;
+    }
+    .action-buttons button:hover {
+        background-color: #2779bd;
+    }
+    .post-feed {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow-y: auto;
+    }
+	.truncate-wallet {
+      display: inline-block;
+      max-width: 13ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+	.comment-container {
+        background-color: #e0f7e9; /* Light green background */
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .comment-user {
+        font-weight: bold;
+        color: #2c3e50;
+        font-size: 0.9em;
+    }
+    .comment-text {
+        color: #34495e;
+        font-size: 1em;
+        margin-top: 5px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto py-8">
+    <header class="flex items-center justify-between mb-8">
+      <div class="flex items-center">
+        <img src="/img/image.png" alt="Twitter Logo" class="twitter-logo mr-4">
+        <h1 class="text-3xl font-bold">Mini Twitter</h1>
+      </div>
+      <div id="wallet-section" class="flex items-center">
+        <div id="user-section" class="hidden" style="display: flex; align-items: center; justify-content: space-between;">
+			<p>Connecté en tant que:</p>
+			<span id="current-account" class="truncate-wallet" style="margin-left: 10px;"></span>
+		  </div>		  
+      </div>
+    </header>
+
+    <!-- Create Post Section -->
+	<section class="mb-8" style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; max-width: 800px; width: 100%; margin: 0 auto;">
+		<h2 style="color: #2c3e50; font-size: 1.8em; margin-bottom: 10px;">Create Post</h2>
+		<input type="text" id="postTitle" placeholder="Post Title" style="color: #34495e; font-size: 1em; margin-bottom: 10px; width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+		<textarea id="postContent" placeholder="Post Content" style="color: #7f8c8d; font-size: 1.2em; margin-bottom: 10px; width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; overflow-wrap: break-word;"></textarea>
+		<button onclick="createPost()" style="background-color: #3498db; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer;">Create Post</button>
+	</section>
+	<hr style="border-top: 2px solid #ecf0f1;">
+	
+
+    <hr class="my-8">
+
+    <!-- All Posts Section -->
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4">All Posts</h2>
+      <div id="postsList" class="post-feed space-y-4">
+        <!-- Posts will be dynamically added here -->
+      </div>
+    </section>
+  </div>
+
+  <hr class="my-8">
+
+  <script>
+    let web3;
+    let contract;
+    const contractAddress = "0xA7918D253764E42d60C3ce2010a34d5a1e7C1398";
+    const contractABI = [
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "_content",
+				"type": "string"
+			}
+		],
+		"name": "addComment",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "postId",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "commentIndex",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "commenter",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			}
+		],
+		"name": "CommentAdded",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_title",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_content",
+				"type": "string"
+			}
+		],
+		"name": "createPost",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			}
+		],
+		"name": "deletePost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "_newTitle",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_newContent",
+				"type": "string"
+			}
+		],
+		"name": "editPost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "postId",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "title",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "PostCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "postId",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "liker",
+				"type": "address"
+			}
+		],
+		"name": "PostLiked",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "postId",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "unliker",
+				"type": "address"
+			}
+		],
+		"name": "PostUnliked",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			}
+		],
+		"name": "toggleLike",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "activePostsCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getAllPosts",
+		"outputs": [
+			{
+				"internalType": "uint256[]",
+				"name": "postIds",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "string[]",
+				"name": "titles",
+				"type": "string[]"
+			},
+			{
+				"internalType": "string[]",
+				"name": "contents",
+				"type": "string[]"
+			},
+			{
+				"internalType": "address[]",
+				"name": "authors",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "timestamps",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "likeCounts",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "commentCounts",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "bool[]",
+				"name": "isEdited",
+				"type": "bool[]"
+			},
+			{
+				"internalType": "bool[]",
+				"name": "isActive",
+				"type": "bool[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			}
+		],
+		"name": "getPost",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "title",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "likesCount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address[]",
+				"name": "likedBy",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256",
+				"name": "commentCount",
+				"type": "uint256"
+			},
+			{
+				"components": [
+					{
+						"internalType": "string",
+						"name": "content",
+						"type": "string"
+					},
+					{
+						"internalType": "address",
+						"name": "author",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct MiniSocial.Comment[]",
+				"name": "comments",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getTotalPosts",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_postId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "hasLiked",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "totalPosts",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+];
+
+    async function connectWallet() {
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        web3 = new Web3(window.ethereum);
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+        const accounts = await web3.eth.getAccounts();
+        handleAccountChange(accounts[0]);
+        getPosts();
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+        alert('Failed to connect wallet');
+      }
+    }
+
+    function handleAccountChange(account) {
+      document.getElementById('current-account').textContent = account;
+      document.getElementById('wallet-section').classList.remove('hidden');
+      document.getElementById('user-section').classList.remove('hidden');
+    }
+
+    async function createPost() {
+      try {
+        const title = document.getElementById("postTitle").value;
+        const content = document.getElementById("postContent").value;
+        const accounts = await web3.eth.getAccounts();
+        const account = accounts[0];
+        const response = await contract.methods.createPost(title, content).send({ from: account });
+        alert("Post created with ID: " + response.events.PostCreated.returnValues.postId);
+        await getPosts();
+      } catch (error) {
+        console.error('Error creating post:', error);
+        alert('Error creating post');
+      }
+    }
+
+    async function getPosts() {
+    try {
+        const postsList = document.getElementById("postsList");
+        postsList.innerHTML = '';
+        const posts = await contract.methods.getAllPosts().call();
+        const userAddress = ethereum.selectedAddress;
+
+        for (let i = 0; i < posts.postIds.length; i++) {
+            const postId = posts.postIds[i];
+            const postTitle = posts.titles[i];
+            const postContent = posts.contents[i];
+            const postAuthor = posts.authors[i];
+            const likesCount = posts.likeCounts[i];
+
+            // Check if the current user is the author of the post
+            const isAuthor = userAddress.toLowerCase() === postAuthor.toLowerCase();
+
+            const postDiv = document.createElement("div");
+            postDiv.classList.add("post");
+            postDiv.innerHTML = `
+                <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; max-width: 800px; width: 100%; margin: 0 auto;">
+                    <p style="color: #34495e; font-size: 1em; margin-bottom: 10px;">Author: <strong>${postAuthor}</strong></p>
+                    <h3 style="color: #2c3e50; font-size: 1.8em; margin-bottom: 10px;">${postTitle}</h3>
+                    <p style="color: #7f8c8d; font-size: 1.2em; margin-bottom: 10px; overflow-wrap: break-word;">${postContent}</p>
+                    <p style="color: #e74c3c; font-size: 1.1em; margin-bottom: 10px;">Likes: ${likesCount}</p>
+                    <button onclick="toggleLike(${postId})" style="background-color: #3498db; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer; margin-right: 10px;">Like/Unlike</button>
+                    <button onclick="viewComments(${postId})" style="background-color: #3498db; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer;">View Comments</button>
+                    
+                    ${isAuthor ? `
+                        <button onclick="deletePost(${postId})" style="background-color: #e74c3c; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer; margin-top: 10px;">Delete</button>
+                        <button onclick="editPost(${postId})" style="background-color: #f39c12; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer; margin-top: 10px;">Edit</button>
+                    ` : ''}
+                    
+                    <!-- Comments Section -->
+                    <div id="comments-${postId}" style="margin-top: 15px;">
+                        <!-- Comments will be dynamically loaded here -->
+                    </div>
+
+                    <!-- Add a comment section -->
+                    <div style="margin-top: 20px;">
+                        <textarea id="commentContent-${postId}" placeholder="Add a comment" style="width: 100%; padding: 10px; margin-bottom: 10px;"></textarea>
+                        <button onclick="addComment(${postId})" style="background-color: #2ecc71; color: white; border: none; border-radius: 5px; padding: 10px 15px; cursor: pointer;">Add Comment</button>
+                    </div>
+                </div>
+                <hr style="border-top: 2px solid #ecf0f1;">
+            `;
+            postsList.appendChild(postDiv);
+        }
+    } catch (error) {
+        console.error('Error getting posts:', error);
+        alert('Error getting posts');
+    }
+}
+async function deletePost(postId) {
+    try {
+        await contract.methods.deletePost(postId).send({ from: ethereum.selectedAddress });
+        alert("Post deleted successfully");
+        getPosts(); // Refresh the posts list after deletion
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        alert("Error deleting post");
+    }
+}
+
+async function editPost(postId) {
+    const newTitle = prompt("Enter new title for the post:");
+    const newContent = prompt("Enter new content for the post:");
+    
+    if (newTitle && newContent) {
+        try {
+            await contract.methods.editPost(postId, newTitle, newContent).send({ from: ethereum.selectedAddress });
+            alert("Post edited successfully");
+            getPosts(); // Refresh the posts list after editing
+        } catch (error) {
+            console.error('Error editing post:', error);
+            alert("Error editing post");
+        }
+    } else {
+        alert("Title and content cannot be empty");
+    }
+}
+
+    async function toggleLike(postId) {
+      try {
+        const accounts = await web3.eth.getAccounts();
+        const account = accounts[0];
+        await contract.methods.toggleLike(postId).send({ from: account });
+        alert("Like/Unlike toggled");
+        await getPosts();
+      } catch (error) {
+        console.error('Error toggling like:', error);
+        alert('Error toggling like');
+      }
+    }
+	// Function to add a comment to a post
+async function addComment(postId) {
+    const content = document.getElementById(`commentContent-${postId}`).value;
+
+    const accounts = await web3.eth.getAccounts();
+    const account = accounts[0];
+
+    try {
+        const response = await contract.methods.addComment(postId, content).send({ from: account });
+        alert("Comment added");
+        viewComments(postId); // Reload comments for the post
+        document.getElementById(`commentContent-${postId}`).value = ''; // Clear the comment field
+    } catch (error) {
+        console.error(error);
+        alert("Error adding comment");
+    }
+}
+
+	async function viewComments(postId) {
+      const commentsDiv = document.getElementById("comments-" + postId);
+      commentsDiv.innerHTML = "";
+      const post = await contract.methods.getPost(postId).call();
+
+      for (let i = 0; i < post.commentCount; i++) {
+        const comment = post.comments[i];
+        const userId = `user id : ${comment.userId}`; // Adjust this based on actual data structure
+
+        const commentDiv = document.createElement("div");
+        commentDiv.classList.add("comment-container");
+        commentDiv.innerHTML = `
+            <p class="comment-user">${userId}</p>
+            <p class="comment-text">${comment.content}</p>
+        `;
+        commentsDiv.appendChild(commentDiv);
+      }
+    }
+
+    // Call the connectWallet function on page load
+    connectWallet();
+  </script>
+</body>
+</html>
